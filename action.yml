@@ -15,6 +15,21 @@ inputs:
     description: "If true, skip creating/updating the release and just emit the body."
     required: false
     default: "false"
+  heading-level:
+    description: "Markdown heading level for category sections (e.g., 2 -> ##)."
+    required: false
+    default: "2"
+  empty-message:
+    description: "Message to use when no categorized changes are found."
+    required: false
+    default: "No categorized changes found."
+  template:
+    description: "Release notes template. Supports {{sections}}, {{tag}}, {{previousTag}} placeholders."
+    required: false
+    default: "{{sections}}"
+  category-map:
+    description: "JSON object mapping Conventional Commit types to headings (e.g., {\"perf\":\"Performance\"})."
+    required: false
 outputs:
   release-body:
     description: "Rendered release notes body."

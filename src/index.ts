@@ -1,28 +1,8 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import {Octokit} from '@octokit/rest';
-
-// Map Conventional Commit types to release note categories
-const CATEGORY_MAP: Record<string, string> = {
-  feat: 'Features',
-  fix: 'Fixes',
-  chore: 'Chores',
-  docs: 'Docs',
-  refactor: 'Refactors'
-};
-
-interface ParsedTitle {
-  category: string;
-  summary: string;
-}
-
-function parseTitle(title: string): ParsedTitle | null {
-  const match = title.match(/^(\w+)(?:\([^)]*\))?:\s+(.+)/);
-  if (!match) return null;
-  const [, type, summary] = match;
-  const category = CATEGORY_MAP[type.toLowerCase()] ?? 'Other';
-  return {category, summary};
-}
+import {buildCategoryMap, parseTitle, CategoryMap} from './parser';
+import {renderBody, Categorized} from './renderer';
 
 async function findPreviousTag(octokit: Octokit, owner: string, repo: string, currentTag: string): Promise<string | null> {
   const {data: tags} = await octokit.repos.listTags({owner, repo, per_page: 100});
@@ -32,11 +12,47 @@ async function findPreviousTag(octokit: Octokit, owner: string, repo: string, cu
   return prev ? prev.name : null;
 }
 
+async function collectCategorizedPRs(octokit: Octokit, owner: string, repo: string, base: string, head: string, categoryMap: CategoryMap): Promise<Categorized> {
+  const {data: comparison} = await octokit.rest.repos.compareCommits({owner, repo, base, head});
+
+  const seenPrs = new Set<number>();
+  const categorized: Categorized = {};
+
+  for (const commit of comparison.commits) {
+    const {data: prs} = await octokit.rest.repos.listPullRequestsAssociatedWithCommit({
+      owner,
+      repo,
+      commit_sha: commit.sha
+    });
+
+    for (const pr of prs) {
+      if (pr.state !== 'closed' || !pr.merged_at) continue;
+      if (seenPrs.has(pr.number)) continue;
+      seenPrs.add(pr.number);
+
+      const parsed = parseTitle(pr.title, categoryMap);
+      if (!parsed) {
+        core.info(`Skipping non-conformant PR title: #${pr.number} ${pr.title}`);
+        continue;
+      }
+
+      if (!categorized[parsed.category]) categorized[parsed.category] = [];
+      categorized[parsed.category].push({summary: parsed.summary, pr: pr.number, category: parsed.category});
+    }
+  }
+
+  return categorized;
+}
+
 async function main(): Promise<void> {
   try {
     const token = core.getInput('github-token', {required: true});
     const explicitTag = core.getInput('tag');
     const dryRun = core.getBooleanInput('dry-run');
+    const categoryOverride = core.getInput('category-map');
+    const template = core.getInput('template') || '{{sections}}';
+    const emptyMessage = core.getInput('empty-message') || 'No categorized changes found.';
+    const headingLevel = Number(core.getInput('heading-level') || '2');
 
     const ctx = github.context;
     const {owner, repo} = ctx.repo;
@@ -49,66 +65,24 @@ async function main(): Promise<void> {
       return;
     }
 
+    const categoryMap = buildCategoryMap(categoryOverride);
+
     const previousTag = await findPreviousTag(octokit, owner, repo, refTag);
     core.info(`Current tag: ${refTag}`);
     core.info(`Previous tag: ${previousTag ?? 'none (initial release)'}`);
 
-    // Determine base and head for comparison
-    let baseRef: string | undefined;
-    if (previousTag) {
-      baseRef = previousTag;
-    }
+    // Determine comparison base
+    const compareBase = previousTag ?? (await octokit.repos.get({owner, repo})).data.default_branch;
 
-    // If no previous tag, compare from the beginning of the repository
-    const compareBase = baseRef ?? (await octokit.repos.get({owner, repo})).data.default_branch;
+    const categorized = await collectCategorizedPRs(octokit, owner, repo, compareBase, refTag, categoryMap);
 
-    const {data: comparison} = await octokit.rest.repos.compareCommits({
-      owner,
-      repo,
-      base: compareBase,
-      head: refTag
+    const body = renderBody(categorized, {
+      headingLevel: Number.isFinite(headingLevel) && headingLevel >= 1 ? headingLevel : 2,
+      emptyMessage,
+      template,
+      tag: refTag,
+      previousTag
     });
-
-    const seenPrs = new Set<number>();
-    const categorized: Record<string, {summary: string; pr: number}[]> = {};
-
-    for (const commit of comparison.commits) {
-      const {data: prs} = await octokit.rest.repos.listPullRequestsAssociatedWithCommit({
-        owner,
-        repo,
-        commit_sha: commit.sha
-      });
-
-      for (const pr of prs) {
-        if (pr.state !== 'closed' || !pr.merged_at) continue;
-        if (seenPrs.has(pr.number)) continue;
-        seenPrs.add(pr.number);
-
-        const parsed = parseTitle(pr.title);
-        if (!parsed) {
-          core.info(`Skipping non-conformant PR title: #${pr.number} ${pr.title}`);
-          continue;
-        }
-
-        if (!categorized[parsed.category]) {
-          categorized[parsed.category] = [];
-        }
-
-        categorized[parsed.category].push({summary: parsed.summary, pr: pr.number});
-      }
-    }
-
-    const sections = Object.entries(categorized)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([category, items]) => {
-        const bullets = items
-          .sort((x, y) => x.pr - y.pr)
-          .map(item => `- ${item.summary} (#${item.pr})`)
-          .join('\n');
-        return `## ${category}\n${bullets}`;
-      });
-
-    const body = sections.length > 0 ? sections.join('\n\n') : 'No categorized changes found.';
 
     core.setOutput('release-body', body);
 
