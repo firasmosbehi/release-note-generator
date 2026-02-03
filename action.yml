@@ -1,0 +1,23 @@
+name: "Automated Release Notes Generator"
+description: "Drafts GitHub Releases from Conventional Commit PR titles when a tag is pushed."
+author: "firasmosbehi"
+runs:
+  using: "node20"
+  main: "dist/index.js"
+inputs:
+  github-token:
+    description: "GitHub token with repo scope (typically secrets.GITHUB_TOKEN)."
+    required: true
+  tag:
+    description: "Tag name to draft release for. Defaults to the tag that triggered the workflow."
+    required: false
+  dry-run:
+    description: "If true, skip creating/updating the release and just emit the body."
+    required: false
+    default: "false"
+outputs:
+  release-body:
+    description: "Rendered release notes body."
+branding:
+  icon: "book-open"
+  color: "blue"
