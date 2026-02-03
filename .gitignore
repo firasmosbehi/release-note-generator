@@ -1,0 +1,19 @@
+# Node
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.deno/
+dist/
+build/
+coverage/
+*.log
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
