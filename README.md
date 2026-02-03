@@ -1,5 +1,9 @@
 # Automated Release Notes Generator
 
+![CI](https://github.com/firasmosbehi/release-note-generator/actions/workflows/ci.yml/badge.svg)
+![Draft Release on Tag](https://github.com/firasmosbehi/release-note-generator/actions/workflows/release-drafter.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+
 An action-first project that turns tagged releases into polished GitHub Releases. It parses pull request titles that follow Conventional Commits and builds categorized changelog bullets (Features, Fixes, Chores) automatically.
 
 ## Features (planned)

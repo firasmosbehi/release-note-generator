@@ -34,5 +34,5 @@ outputs:
   release-body:
     description: "Rendered release notes body."
 branding:
-  icon: "book-open"
-  color: "blue"
+  icon: "tag"
+  color: "green"

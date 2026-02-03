@@ -4,7 +4,7 @@ import {Octokit} from '@octokit/rest';
 import {buildCategoryMap, parseTitle, CategoryMap} from './parser';
 import {renderBody, Categorized} from './renderer';
 
-async function findPreviousTag(octokit: Octokit, owner: string, repo: string, currentTag: string): Promise<string | null> {
+export async function findPreviousTag(octokit: Octokit, owner: string, repo: string, currentTag: string): Promise<string | null> {
   const {data: tags} = await octokit.repos.listTags({owner, repo, per_page: 100});
   const idx = tags.findIndex(tag => tag.name === currentTag);
   if (idx === -1) return null;
@@ -12,7 +12,7 @@ async function findPreviousTag(octokit: Octokit, owner: string, repo: string, cu
   return prev ? prev.name : null;
 }
 
-async function collectCategorizedPRs(octokit: Octokit, owner: string, repo: string, base: string, head: string, categoryMap: CategoryMap): Promise<Categorized> {
+export async function collectCategorizedPRs(octokit: Octokit, owner: string, repo: string, base: string, head: string, categoryMap: CategoryMap): Promise<Categorized> {
   const {data: comparison} = await octokit.rest.repos.compareCommits({owner, repo, base, head});
 
   const seenPrs = new Set<number>();
@@ -44,7 +44,7 @@ async function collectCategorizedPRs(octokit: Octokit, owner: string, repo: stri
   return categorized;
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   try {
     const token = core.getInput('github-token', {required: true});
     const explicitTag = core.getInput('tag');
@@ -127,4 +127,6 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+if (process.env.NODE_ENV !== 'test') {
+  void main();
+}
