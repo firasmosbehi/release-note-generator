@@ -23,6 +23,18 @@ describe('parseTitle', () => {
     expect(parsed?.summary).toBe('add thing');
   });
 
+  it('accepts breaking change bang syntax', () => {
+    const parsed = parseTitle('feat!: breaking', map);
+    expect(parsed?.category).toBe('Features');
+    expect(parsed?.summary).toBe('breaking');
+  });
+
+  it('accepts hyphenated types', () => {
+    const parsed = parseTitle('ci-pipeline: tighten', map);
+    expect(parsed?.category).toBe('CI');
+    expect(parsed?.summary).toBe('tighten');
+  });
+
   it('handles scoped types', () => {
     const parsed = parseTitle('fix(api): repair', map);
     expect(parsed?.category).toBe('Fixes');

@@ -19,6 +19,12 @@ inputs:
     description: "Markdown heading level for category sections (e.g., 2 -> ##)."
     required: false
     default: "2"
+  base:
+    description: "Optional ref/sha to use as comparison base instead of previous tag (useful for hotfixes or first releases)."
+    required: false
+  head:
+    description: "Optional ref/sha to use as comparison head instead of the current tag."
+    required: false
   empty-message:
     description: "Message to use when no categorized changes are found."
     required: false

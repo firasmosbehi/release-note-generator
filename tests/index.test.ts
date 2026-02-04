@@ -48,7 +48,7 @@ vi.mock('@actions/github', () => {
 
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import {main, findPreviousTag, collectCategorizedPRs} from '../src/index';
+import {main, findPreviousTag, collectCategorizedPRs, findBranchRoot} from '../src/index';
 
 type CoreMock = typeof core & {
   __setInputs: (vals: Record<string, string>) => void;
@@ -77,6 +77,29 @@ describe('findPreviousTag', () => {
     });
     const previous = await findPreviousTag(githubMock.__octokit as any, 'owner', 'repo', 'v1.1.0');
     expect(previous).toBe('v1.0.0');
+  });
+
+  it('paginates when paginate is available', async () => {
+    const paginateMock = vi.fn().mockResolvedValue([
+      {name: 'v2.0.0'},
+      {name: 'v1.1.0'},
+      {name: 'v1.0.0'}
+    ]);
+    const octo = {...githubMock.__octokit, paginate: paginateMock};
+    const previous = await findPreviousTag(octo as any, 'owner', 'repo', 'v1.1.0');
+    expect(previous).toBe('v1.0.0');
+    expect(paginateMock).toHaveBeenCalled();
+  });
+});
+
+describe('findBranchRoot', () => {
+  it('returns the oldest commit sha of the branch', async () => {
+    githubMock.__octokit.repos.listCommits = vi.fn()
+      .mockResolvedValueOnce({data: Array.from({length: 100}, (_, i) => ({sha: `sha-${i}`}))})
+      .mockResolvedValueOnce({data: [{sha: 'oldest'}]});
+
+    const sha = await findBranchRoot(githubMock.__octokit as any, 'owner', 'repo', 'main');
+    expect(sha).toBe('oldest');
   });
 });
 
@@ -153,6 +176,23 @@ describe('main', () => {
       expect.objectContaining({release_id: 7})
     );
     expect(githubMock.__octokit.rest.repos.createRelease).not.toHaveBeenCalled();
+  });
+
+  it('uses override base and head when provided', async () => {
+    setupCommonMocks();
+    githubMock.__octokit.rest.repos.getReleaseByTag.mockRejectedValue({status: 404});
+    coreMock.__setInputs({
+      'github-token': 'token',
+      base: 'custom-base',
+      head: 'custom-head'
+    });
+    coreMock.__setBoolInputs({'dry-run': false});
+
+    await main();
+
+    expect(githubMock.__octokit.rest.repos.compareCommits).toHaveBeenCalledWith(
+      expect.objectContaining({base: 'custom-base', head: 'custom-head'})
+    );
   });
 
   it('creates a release when none exists', async () => {

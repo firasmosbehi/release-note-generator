@@ -65,6 +65,8 @@ jobs:
 Inputs:
 - `github-token` (required): token with `contents:write`, `pull-requests:read`.
 - `tag` (optional): override tag name; defaults to the pushed tag.
+- `base` (optional): override comparison base ref/sha; defaults to previous tag or the oldest commit on the default branch (first release).
+- `head` (optional): override comparison head ref/sha; defaults to the current tag.
 - `dry-run` (optional, default `false`): skip creating/updating release.
 - `heading-level` (optional): markdown heading level for category sections.
 - `empty-message` (optional): text shown when no categorized entries.

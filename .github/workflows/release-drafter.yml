@@ -4,13 +4,23 @@ on:
   push:
     tags:
       - '*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name to draft (required when manually dispatched)'
+        required: false
+        type: string
 
 jobs:
   draft-release:
     runs-on: ubuntu-latest
+    concurrency:
+      group: draft-${{ inputs.tag != '' && inputs.tag || github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: read
+    needs: lint-and-test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,6 +29,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Determine tag
+        id: vars
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate tag
+        if: ${{ steps.vars.outputs.tag == '' }}
+        run: |
+          echo "No tag provided. Provide 'tag' input when running manually." >&2
+          exit 1
 
       - name: Install dependencies
         run: npm ci
@@ -30,4 +57,9 @@ jobs:
         uses: ./
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.vars.outputs.tag }}
           dry-run: false
+
+  lint-and-test:
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
