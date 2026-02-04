@@ -4,32 +4,9 @@
 ![Draft Release on Tag](https://github.com/firasmosbehi/release-note-generator/actions/workflows/release-drafter.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
-An action-first project that turns tagged releases into polished GitHub Releases. It parses pull request titles that follow Conventional Commits and builds categorized changelog bullets (Features, Fixes, Chores) automatically.
+GitHub Action that drafts release notes from merged PR titles (Conventional Commits) whenever a tag is pushed. It groups changes into sections (Features, Fixes, Chores, etc.), renders a configurable template, and updates/creates a draft GitHub Release.
 
-## Features (planned)
-- Parse PR titles that follow Conventional Commits.
-- Group entries into Features, Fixes, and Chores.
-- Draft a GitHub Release when a tag is pushed.
-- Configurable templates for release notes output.
-- Dry-run mode for CI validation.
-
-## Why
-Writing release notes by hand is tedious and error-prone. This project automates the boring parts so teams can ship faster with consistent changelogs.
-
-## Getting Started
-Development setup (preview):
-
-```bash
-npm ci
-npm run lint
-npm run test
-npm run build
-```
-
-This builds the action into `dist/` for use in workflows.
-
-### Usage (preview)
-Add a workflow triggered by tags:
+## Quick Start
 
 ```yaml
 name: Draft Release Notes
@@ -52,34 +29,59 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run build
-      - uses: firasmosbehi/release-note-generator@main
+      - uses: firasmosbehi/release-note-generator@v0.1.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           dry-run: false
-          heading-level: 2
-          empty-message: "No categorized changes found."
-          template: "{{sections}}"
-          category-map: "{\"perf\":\"Performance\"}"
 ```
 
-Inputs:
-- `github-token` (required): token with `contents:write`, `pull-requests:read`.
-- `tag` (optional): override tag name; defaults to the pushed tag.
-- `base` (optional): override comparison base ref/sha; defaults to previous tag or the oldest commit on the default branch (first release).
-- `head` (optional): override comparison head ref/sha; defaults to the current tag.
-- `dry-run` (optional, default `false`): skip creating/updating release.
-- `heading-level` (optional): markdown heading level for category sections.
-- `empty-message` (optional): text shown when no categorized entries.
-- `template` (optional): string containing `{{sections}}`, `{{tag}}`, `{{previousTag}}` placeholders.
-- `category-map` (optional): JSON object mapping Conventional Commit types to headings.
+### Inputs
 
-Expected PR titles: Conventional Commits (e.g., `feat: add config`, `fix(ui): align button`). Non-conformant titles are skipped with a log.
+| Name | Required | Default | Description |
+| --- | --- | --- | --- |
+| `github-token` | yes | – | Token with `contents:write` and `pull-requests:read` (use `secrets.GITHUB_TOKEN`). |
+| `tag` | no | current tag | Tag to draft the release for. |
+| `base` | no | previous tag or branch root | Comparison base ref/sha. |
+| `head` | no | current tag | Comparison head ref/sha. |
+| `dry-run` | no | `false` | Skip creating/updating the release; just log the body. |
+| `heading-level` | no | `2` | Markdown heading level for category sections. |
+| `empty-message` | no | `No categorized changes found.` | Message when no entries are found. |
+| `template` | no | `{{sections}}` | Template supporting `{{sections}}`, `{{tag}}`, `{{previousTag}}`. |
+| `category-map` | no | built-in map | JSON mapping Conventional Commit types to headings. |
 
-## Roadmap
-Roadmap is tracked through GitHub milestones and issues. Open the repository issues tab to see current work.
+### Expected PR Titles
+
+Conventional Commits style, e.g.:
+- `feat: add config`
+- `fix(ui): align button`
+- `chore: bump deps`
+
+Non-conformant titles are skipped (logged).
+
+### Permissions
+- `contents: write`
+- `pull-requests: read`
+
+### Outputs
+- `release-body`: rendered release notes body.
+
+## How It Works
+1. Determine current tag and previous tag (or branch root for first release).
+2. Compare commits between base/head and gather merged PRs for those commits.
+3. Parse PR titles into categories using `category-map`.
+4. Render markdown sections and draft/update the GitHub Release (or dry run).
+
+## Local Development
+```bash
+npm ci
+npm run lint
+npm run test
+npm run build
+```
+`dist/` is the packaged action referenced by `action.yml`.
 
 ## Contributing
-We welcome pull requests! Please read `CONTRIBUTING.md` for workflow details.
+PRs welcome! See `CONTRIBUTING.md` for workflow details.
 
 ## License
 MIT License. See `LICENSE` for details.

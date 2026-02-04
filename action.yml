@@ -40,5 +40,5 @@ outputs:
   release-body:
     description: "Rendered release notes body."
 branding:
-  icon: "tag"
-  color: "green"
+  icon: "package"
+  color: "blue"
